@@ -1,9 +1,7 @@
 use crate::server::ProjectConfig;
 use regex::Regex;
 use ropey::Rope;
-#[cfg(feature = "slang")]
 use std::env::current_dir;
-#[cfg(feature = "slang")]
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -202,7 +200,6 @@ fn slang_severity(severity: &str) -> Option<DiagnosticSeverity> {
     }
 }
 
-#[cfg(feature = "slang")]
 // convert relative path to absolute
 fn absolute_path(path_str: &str) -> PathBuf {
     let path = Path::new(path_str);
@@ -278,7 +275,8 @@ fn verilator_syntax(
                 Some(caps) => caps,
                 None => break, // return accumulated diagnostics
             };
-            let file_name = caps.name("file_name")?.as_str();
+            let err_file_path = absolute_path(caps.name("file_name")?.as_str());
+            let lint_file_path = absolute_path(file_path.to_str()?);
             let severity = verilator_severity(caps.name("severity")?.as_str());
             let line: u32 = caps.name("line")?.as_str().to_string().parse().ok()?;
             let col: u32 = caps.name("col").map_or("1", |m| m.as_str()).parse().ok()?;
@@ -293,7 +291,8 @@ fn verilator_syntax(
                 ),
                 _ => "".to_string(),
             };
-            if file_path.to_str()?.ends_with(file_name) {
+
+            if lint_file_path == err_file_path {
                 diags.push(Diagnostic::new(
                     Range::new(pos_start, pos_end),
                     severity,
