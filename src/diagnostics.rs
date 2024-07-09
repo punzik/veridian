@@ -240,10 +240,11 @@ fn verilator_syntax(
     static RE: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
     let re = RE.get_or_init(|| {
         Regex::new(
-            r"%(?P<severity>Error|Warning)(-(?P<warning_type>[A-Z0-9_]+))?: [^:]+:(?P<line>\d+):((?P<col>\d+):)? ?(?P<message>.*)",
+            r"%(?P<severity>Error|Warning)(-(?P<warning_type>[A-Z0-9_]+))?: (?P<file_name>[^:]+):(?P<line>\d+):((?P<col>\d+):)? ?(?P<message>.*)",
         )
         .unwrap()
     });
+
     // write file to stdin, read output from stdout
     rope.write_to(child.stdin.as_mut()?).ok()?;
     let output = child.wait_with_output().ok()?;
@@ -272,15 +273,17 @@ fn verilator_syntax(
                 ),
                 _ => "".to_string(),
             };
-            diags.push(Diagnostic::new(
-                Range::new(pos, pos),
-                severity,
-                None,
-                Some("verilator".to_string()),
-                msg,
-                None,
-                None,
-            ));
+            if file_path.to_str()?.ends_with(file_name) {
+                diags.push(Diagnostic::new(
+                    Range::new(pos, pos),
+                    severity,
+                    None,
+                    Some("verilator".to_string()),
+                    msg,
+                    None,
+                    None,
+                ));
+            }
         }
         Some(diags)
     } else {
