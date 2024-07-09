@@ -307,6 +307,25 @@ fn verilator_syntax(
                 ));
             }
         }
+
+        // If no errors found send all stderr output
+        if diags.is_empty() {
+            let args = verilator_syntax_args.iter()
+                .map(|s| format!("'{}'", s))
+                .collect::<Vec<_>>()
+                .join(" ");
+
+            diags.push(Diagnostic::new(
+                Range::new(Position::new(0, 0), Position::new(0, u32::MAX)),
+                verilator_severity("Error"),
+                None,
+                Some("verilator".to_string()),
+                format!("{}\n{}", args, raw_output),
+                None,
+                None,
+            ));
+        }
+
         Some(diags)
     } else {
         None
