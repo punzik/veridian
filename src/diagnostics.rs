@@ -1,6 +1,4 @@
 use crate::server::ProjectConfig;
-#[cfg(feature = "slang")]
-use path_clean::PathClean;
 use regex::Regex;
 use ropey::Rope;
 #[cfg(feature = "slang")]
@@ -208,7 +206,7 @@ fn slang_severity(severity: &str) -> Option<DiagnosticSeverity> {
 // convert relative path to absolute
 fn absolute_path(path_str: &str) -> PathBuf {
     let path = Path::new(path_str);
-    current_dir().unwrap().join(path).clean()
+    current_dir().unwrap().join(path).canonicalize().unwrap()
 }
 
 /// convert captured severity string to DiagnosticSeverity
