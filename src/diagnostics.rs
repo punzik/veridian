@@ -251,19 +251,41 @@ fn verilator_syntax(
     if !output.status.success() {
         let mut diags: Vec<Diagnostic> = Vec::new();
         let raw_output = String::from_utf8(output.stderr).ok()?;
-        let filtered_output = raw_output
-            .lines()
-            .filter(|line| line.starts_with('%'))
-            .collect::<Vec<&str>>();
+
+        let mut filtered_output: Vec<(&str, u32)> = Vec::new();
+        let mut line_after_n = 0;
+        let re_err_ptr = Regex::new(r"\^~*").unwrap();
+
+        for line in raw_output.lines() {
+            if line.starts_with('%') {
+                filtered_output.push((line, 0));
+                line_after_n = 0;
+            } else if line_after_n == 2 && !filtered_output.is_empty() {
+                match re_err_ptr.captures(line) {
+                    Some(caps) => {
+                        let item = filtered_output.pop();
+                        match item {
+                            Some(x) => filtered_output.push((x.0, caps.get(0).map_or("", |m| m.as_str()).len() as u32)),
+                            None => (),
+                        }
+                    }
+                    None => ()
+                }
+            }
+            line_after_n += 1;
+        }
+
         for error in filtered_output {
-            let caps = match re.captures(error) {
+            let caps = match re.captures(error.0) {
                 Some(caps) => caps,
                 None => break, // return accumulated diagnostics
             };
+            let file_name = caps.name("file_name")?.as_str();
             let severity = verilator_severity(caps.name("severity")?.as_str());
             let line: u32 = caps.name("line")?.as_str().to_string().parse().ok()?;
             let col: u32 = caps.name("col").map_or("1", |m| m.as_str()).parse().ok()?;
-            let pos = Position::new(line - 1, col - 1);
+            let pos_start = Position::new(line - 1, col - 1);
+            let pos_end = Position::new(line - 1, col + error.1 - 1);
             let msg = match severity {
                 Some(DiagnosticSeverity::ERROR) => caps.name("message")?.as_str().to_string(),
                 Some(DiagnosticSeverity::WARNING) => format!(
@@ -275,7 +297,7 @@ fn verilator_syntax(
             };
             if file_path.to_str()?.ends_with(file_name) {
                 diags.push(Diagnostic::new(
-                    Range::new(pos, pos),
+                    Range::new(pos_start, pos_end),
                     severity,
                     None,
                     Some("verilator".to_string()),
