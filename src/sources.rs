@@ -142,6 +142,8 @@ pub struct Sources {
     pub include_dirs: Arc<RwLock<Vec<PathBuf>>>,
     // source directories
     pub source_dirs: Arc<RwLock<Vec<PathBuf>>>,
+    // source files
+    pub source_files: Arc<RwLock<Vec<PathBuf>>>,
 }
 
 impl std::default::Default for Sources {
@@ -159,6 +161,7 @@ impl Sources {
             scope_tree: Arc::new(RwLock::new(None)),
             include_dirs: Arc::new(RwLock::new(Vec::new())),
             source_dirs: Arc::new(RwLock::new(Vec::new())),
+            source_files: Arc::new(RwLock::new(Vec::new())),
         }
     }
     pub fn init(&self) {
@@ -170,7 +173,11 @@ impl Sources {
             paths.push(path.clone());
         }
         // find and add all source/header files recursively from configured include and source directories
-        let src_paths = find_src_paths(&paths);
+        let mut src_paths = find_src_paths(&paths);
+        // Add individual source
+        for path in &*self.source_files.read().unwrap() {
+            src_paths.push(path.clone());
+        }
         for path in src_paths {
             if let Ok(url) = Url::from_file_path(&path) {
                 if let Ok(text) = fs::read_to_string(&path) {

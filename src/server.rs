@@ -75,6 +75,8 @@ pub struct ProjectConfig {
     pub include_dirs: Vec<String>,
     // list of directories to recursively search for SystemVerilog/Verilog sources
     pub source_dirs: Vec<String>,
+    // list of SystemVerilog/Verilog sources files
+    pub source_files: Vec<String>,
     // config options for verible tools
     pub verible: Verible,
     // config options for verilator tools
@@ -89,6 +91,7 @@ impl Default for ProjectConfig {
             auto_search_workdir: true,
             include_dirs: Vec::new(),
             source_dirs: Vec::new(),
+            source_files: Vec::new(),
             verible: Verible::default(),
             verilator: Verilator::default(),
             log_level: LogLevel::Info,
@@ -213,12 +216,15 @@ impl LanguageServer for Backend {
         // grab include dirs and source dirs from config, and convert to abs path
         let mut inc_dirs = self.server.srcs.include_dirs.write().unwrap();
         let mut src_dirs = self.server.srcs.source_dirs.write().unwrap();
+        let mut src_files = self.server.srcs.source_files.write().unwrap();
         match read_config(params.root_uri) {
             Ok(conf) => {
                 inc_dirs.extend(conf.include_dirs.iter().filter_map(|x| absolute_path(x)));
                 debug!("{:#?}", inc_dirs);
                 src_dirs.extend(conf.source_dirs.iter().filter_map(|x| absolute_path(x)));
                 debug!("{:#?}", src_dirs);
+                src_files.extend(conf.source_files.iter().filter_map(|x| absolute_path(x)));
+                debug!("{:#?}", src_files);
                 let mut log_handle = self.server.log_handle.lock().unwrap();
                 let log_handle = log_handle.as_mut();
                 if let Some(handle) = log_handle {
@@ -254,6 +260,7 @@ impl LanguageServer for Backend {
         }
         drop(inc_dirs);
         drop(src_dirs);
+        drop(src_files);
         // parse all source files found from walking source dirs and include dirs
         self.server.srcs.init();
         Ok(InitializeResult {
